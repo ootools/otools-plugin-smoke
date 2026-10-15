@@ -1,0 +1,13 @@
+{
+  "name": "otools-plugin-smoke",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OTools 插件真宿主冒烟测试：无头 Chrome + 真 fs 宿主桥，验证本地文件优先链路",
+  "scripts": {
+    "smoke": "node smoke-host.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.13.0"
+  }
+}
