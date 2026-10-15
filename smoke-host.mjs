@@ -46,6 +46,7 @@ const PLUGINS = [
   { id: 'otools-puter-documents',   dist: 'otools-puter-documents/dist',   bridge: 'otoolsPuterDocuments',   folder: 'Documents',       marker: 'documents.json' },
   { id: 'otools-puter-spreadsheet', dist: 'otools-puter-spreadsheet/dist', bridge: 'otoolsPuterSpreadsheet', folder: 'Spreadsheets',     marker: 'spreadsheet.json' },
   { id: 'otools-puter-presentation',dist: 'otools-puter-presentation/dist',bridge: 'otoolsPuterPresentation',folder: 'Presentations',  marker: 'presentation.json' },
+  { id: 'otools-puter-audio',       dist: 'otools-puter-audio/dist',       bridge: 'otoolsPuterAudio',      folder: 'Audio Studio',    marker: 'audio-studio.json' },
 ];
 
 const MIME = {
