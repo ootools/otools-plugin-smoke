@@ -79,3 +79,58 @@ puter-* 移植插件）。要测别的插件，改这个数组或加一项即可
 - 无头环境**无 GPU**：ps 的 WebGPU/WebGL2、3d 的 WebGL 视口会报上下文创建失败。
   这只影响像素级渲染的可视验证，应用外壳仍能 boot/挂载/文件链路通；真桌面有 GPU 即正常。
 - `requestfailed` 偶发的 `ERR_CONNECTION_CLOSED` 多为 harness 关闭浏览器时的竞态噪声，可重跑确认。
+
+## WKWebView 探针（macOS 专用）
+
+上面的 Chrome harness 有个**盲区**：Chrome 99+ 实现了全套 Canvas 文本样式
+属性，而 **macOS 上的 Tauri 用的不是 Chrome，是 WKWebView**。凡是只在
+WebKit 上才缺的能力，Chrome harness 一辈子测不出来。
+
+实测结论（本机 macOS 27 / Safari 27）：
+
+| 属性 | WKWebView | Chrome 99+ |
+|---|---|---|
+| `CanvasRenderingContext2D.fontKerning` | **缺** | 有 |
+| `CanvasRenderingContext2D.letterSpacing` | 有（18.4+） | 有 |
+| `CanvasRenderingContext2D.wordSpacing` | 有（18.4+） | 有 |
+| `CanvasRenderingContext2D.textRendering` | 缺 | 有（116+） |
+
+`fontKerning` 缺失曾让 documents 插件在 macOS 上**完全打不开文档**——上游
+`setCanvasTextStyle` 把它当硬前提，缺失即抛错。修法见该仓库的
+`shell/src/otools/canvas-text-support.js`。
+
+```bash
+# 能力探针：只回答「WKWebView 到底缺什么」
+swiftc -O wk-probe.swift -o wk-probe && ./wk-probe
+
+# 端到端：加载真实 dist，跑 boot → 上游守卫 → 绘制落墨
+swiftc -O wk-doc-smoke.swift -o wk-doc-smoke && ./wk-doc-smoke
+
+# 换插件：指定 dist 目录
+DIST=/path/to/otools-puter-documents/dist ./wk-doc-smoke
+```
+
+### 写这类探针时踩过的三个坑
+
+记在这里是因为它们都会**制造假象**，让人以为 bug 修好了或没修好：
+
+1. **别用 `file://` 加载。** 产物入口是 `<script type="module" crossorigin>`，
+   ES module 在 `file://` 下被 CORS 拒绝执行——`boot()` 根本不跑，UI 却是空的。
+   生产环境走 `otools-plugin://` 自定义 scheme，没这个限制，所以探针里用
+   进程内的 `NWListener` 起 http 更接近真实情况。
+
+2. **`didFinishNavigation` 不等于模块执行完。** 模块求值是异步的；在
+   `didFinish` 里同步读 `fontKerning in ctx` 会读到「boot 还没跑」的中间态，
+   得出「补丁没生效」的错误结论。**先 `await` 一个 setTimeout 再断言。**
+   （这个坑真实发生过：同一份数据里前后两个时点结论相反。）
+
+3. **`evaluateJavaScript` 只吃单个表达式**，不接受 `Promise`、不接受
+   `let/var` 多语句。做法是 IIFE 包一层，把结果 `JSON.stringify` 后落到
+   `window.__xxx`，再轮询取字符串。
+
+### 对照实验才是证据
+
+改完别只跑一次「全绿」就收工。把补丁注释掉重跑一遍，确认能**复现原故障**
+（`fatalVisible: true` + 界面出现那句报错），再打开补丁确认恢复——只有这样
+才能证明补丁是唯一变量，而不是别的改动碰巧掩盖了问题。
+

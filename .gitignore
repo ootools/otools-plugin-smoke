@@ -3,3 +3,7 @@ host/
 result.json
 *.log
 .DS_Store
+
+# Swift 探针编译出来的二进制（源码入库，二进制不入库）
+wk-probe
+wk-doc-smoke
